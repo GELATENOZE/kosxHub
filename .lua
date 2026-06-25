@@ -1,5 +1,5 @@
 --// Kosx Hub - Session Time Edition
---// Features: ESP, Camera Fly, Cframe Speed, Noclip + Binds
+--// Features: ESP, Camera Fly, Cframe Speed, Noclip + Binds, Touch Fling
 --// Keybind: J
 
 local Players = game:GetService("Players")
@@ -126,6 +126,9 @@ local flyBodyV, flyBodyG
 local cframeSpeedEnabled = false
 local cframeSpeedMultiplier = 0.2
 local cframeSpeedConnection = nil
+
+-- Touch Fling Variables
+local hiddenfling = false
 
 --========================
 -- GUI Base
@@ -383,6 +386,33 @@ local function toggleCframeSpeed(state)
     end
 end
 
+-- Touch Fling Loop Logic
+local function startFlingLoop()
+    local movel = 0.1
+    while hiddenfling do
+        RunService.Heartbeat:Wait()
+        local c = lp.Character
+        local hrp = c and c:FindFirstChild("HumanoidRootPart")
+
+        if hrp then
+            local vel = hrp.Velocity
+            hrp.Velocity = vel * 10000 + Vector3.new(0, 10000, 0)
+            RunService.RenderStepped:Wait()
+            hrp.Velocity = vel
+            RunService.Stepped:Wait()
+            hrp.Velocity = vel + Vector3.new(0, movel, 0)
+            movel = -movel
+        end
+    end
+end
+
+local function toggleTouchFling(state)
+    hiddenfling = state
+    if hiddenfling then
+        task.spawn(startFlingLoop)
+    end
+end
+
 -- SCROLL FLY SPEED HANDLER
 local function handleFlyScroll(actionName, inputState, inputObject)
     if flyEnabled and UserInputService:IsKeyDown(Enum.KeyCode.LeftControl) then
@@ -399,6 +429,7 @@ ContextActionService:BindActionAtPriority("KosxHubFlyScroll", handleFlyScroll, f
 lp.CharacterAdded:Connect(function()
     flyEnabled = false
     cframeSpeedEnabled = false
+    hiddenfling = false
     if cframeSpeedConnection then
         cframeSpeedConnection:Disconnect()
         cframeSpeedConnection = nil
@@ -551,7 +582,7 @@ local function createSwitch(parent, text, callback)
         else 
             playClick(0.9) 
             tween(sw, {BackgroundColor3 = Color3.fromRGB(50,50,55)}) 
-            tween(circ, {Position = UDim2.new(0, 3, 0.5, 0)}) 
+            tween(circ, {Position = UDim2.new(0, 3, 0, 3)}) 
             sendNotify("Disabled", text) 
         end
         updateArray(text, on) 
@@ -592,6 +623,28 @@ local function createSwitch(parent, text, callback)
         if not gp and bind and input.KeyCode == bind then 
             doToggle() 
         end 
+    end)
+end
+
+-- Функция создания ОДНОРАЗОВОЙ КНОПКИ (для скриптов)
+local function createButton(parent, text, callback)
+    local btn = mk("TextButton", {
+        Text = text, Font=Enum.Font.GothamMedium, TextSize=13, TextColor3=Color3.fromRGB(240,240,240),
+        BackgroundColor3 = Color3.fromRGB(35,35,38), Size = UDim2.new(1, -10, 0, 35), AutoButtonColor = false, Parent = parent
+    })
+    mk("UICorner", {Parent=btn, CornerRadius=UDim.new(0,8)})
+    mk("UIStroke", {Parent=btn, Color=Color3.fromRGB(60,60,65), Thickness=1, Transparency=0.5})
+
+    btn.MouseEnter:Connect(function() tween(btn, {BackgroundColor3 = Color3.fromRGB(45,45,48)}) end)
+    btn.MouseLeave:Connect(function() tween(btn, {BackgroundColor3 = Color3.fromRGB(35,35,38)}) end)
+    
+    btn.MouseButton1Click:Connect(function()
+        playClick(1.1)
+        tween(btn, {Size = UDim2.new(1, -14, 0, 31)}, 0.1).Completed:Connect(function()
+            tween(btn, {Size = UDim2.new(1, -10, 0, 35)}, 0.1)
+        end)
+        if callback then callback() end
+        sendNotify("Script Executed", text .. " loaded!")
     end)
 end
 
@@ -752,12 +805,14 @@ end
 -- Build Content
 --========================
 local pCombat = createTab("Combat")
+local pScripts = createTab("Scripts") -- Твоя новая вкладка для скриптов
 local pSettings = createTab("Settings", setContainer)
 local setBtn = tabs[#tabs].Btn
 setBtn.Size = UDim2.new(1,0,1,0) setBtn.Position = UDim2.new(0,0,0,0)
 
--- > COMBAT TAB (все функции с биндами и настройками)
+-- > COMBAT TAB 
 createEspControl(pCombat, function(v) toggleESP(v) end)
+createSwitch(pCombat, "Touch Fling", function(v) toggleTouchFling(v) end)
 createSwitch(pCombat, "Cframe Speed", function(v) toggleCframeSpeed(v) end)
 createDragValue(pCombat, "Cframe Speed Multiplier", 0.01, 2, 0.2, function(v) 
     cframeSpeedMultiplier = v 
@@ -765,6 +820,20 @@ end)
 createSwitch(pCombat, "Cframe Fly", function(v) toggleFly(v) end)
 createSwitch(pCombat, "Noclip", function(v) toggleNoclip(v) end)
 createDragValue(pCombat, "Fly Speed", 10, 1000, 50, function(v) flySpeed = v end)
+
+-- > SCRIPTS TAB (Твои скрипты)
+createButton(pScripts, "Infinite Yield", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/EdgeIY/infiniteyield/master/source"))()
+end)
+createButton(pScripts, "Bring Parts", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GELATENOZE/bringallpartsgela/refs/heads/main/partsbring.lua"))()
+end)
+createButton(pScripts, "Camlock-Q", function()
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/GELATENOZE/camlock/e1de1d2ca33d78ba650daaa8350da0180efe0316/lock.lua"))()
+end)
+createButton(pScripts, "f3x tool", function()
+	loadstring(game:GetObjects("rbxassetid://6695644299")[1].Source)()
+end)
 
 -- > SETTINGS TAB
 mk("TextLabel", {Text = "Theme Presets", Font = Enum.Font.GothamBold, TextSize = 14, TextColor3 = Color3.fromRGB(150,150,150), BackgroundTransparency = 1, Size = UDim2.new(1,0,0,20), TextXAlignment=Enum.TextXAlignment.Left, Parent = pSettings})
